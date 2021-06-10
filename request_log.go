@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	RequestLogNamespace  = "github_com/magalix/gin-logger"
+	RequestLogNamespace  = "github_com/magalixtechnologies/gin-logger"
 	RequestLogmoduleName = "gin-logger"
 )
 

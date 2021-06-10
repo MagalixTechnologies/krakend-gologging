@@ -11,11 +11,13 @@ import (
 )
 
 // Namespace is the key to look for extra configuration details
-const Namespace = "github_com/devopsfaith/krakend-gologging"
+const Namespace = "github_com/magalixtechnologies/krakend-gologging"
 
 var (
 	// ErrEmptyValue is the error returned when there is no config under the namespace
 	ErrWrongConfig = fmt.Errorf("getting the extra config for the krakend-gologging module")
+	// Used for krakend dependecies. Do not move
+	DefaultPattern = ` %{time:2006/01/02 - 15:04:05.000} %{color}▶ %{level:.6s}%{color:reset} %{message}`
 )
 
 // NewLogger returns a krakend logger wrapping a gologging logger

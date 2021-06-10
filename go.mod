@@ -1,4 +1,4 @@
-module github.com/devopsfaith/krakend-gologging
+module github.com/MagalixTechnologies/krakend-gologging
 
 go 1.16
 
