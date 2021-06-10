@@ -26,13 +26,13 @@ func NewLogger(cfg config.ExtraConfig, ws ...io.Writer) (logging.Logger, error) 
 	}
 	logLevel := logConfig.Level
 	switch logLevel {
-	case "info":
+	case "INFO":
 		logger.Config(logger.InfoLevel)
-	case "warn":
+	case "WARNING":
 		logger.Config(logger.WarnLevel)
-	case "debug":
+	case "DEBUG":
 		logger.Config(logger.DebugLevel)
-	case "error":
+	case "ERROR":
 		logger.Config(logger.ErrorLevel)
 	default:
 		return nil, fmt.Errorf("Unsupported log level %s", logLevel)
