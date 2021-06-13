@@ -45,9 +45,6 @@ func TestNewLogger(t *testing.T) {
 
 func TestNewLogger_logstashFormat(t *testing.T) {
 	buff := bytes.NewBuffer(make([]byte, 1024))
-	SetFormatterSelector(func(w io.Writer) string {
-		return ActivePattern
-	})
 	logger, err := NewLogger(newExtraConfig("DEBUG", "logstash", ""), TestFormatWriter{buff})
 
 	if err != nil {
@@ -65,9 +62,6 @@ func TestNewLogger_logstashFormat(t *testing.T) {
 }
 func TestNewLogger_customFormat(t *testing.T) {
 	buff := bytes.NewBuffer(make([]byte, 1024))
-	SetFormatterSelector(func(w io.Writer) string {
-		return ActivePattern
-	})
 	logger, err := NewLogger(newExtraConfig("DEBUG", "custom", "----> %{message}"), TestFormatWriter{buff})
 
 	if err != nil {
@@ -98,12 +92,7 @@ func TestNewLogger_unknownLevel(t *testing.T) {
 func newExtraConfig(level string, format string, customFormat string) map[string]interface{} {
 	return map[string]interface{}{
 		Namespace: map[string]interface{}{
-			"level":         level,
-			"prefix":        "pref",
-			"syslog":        false,
-			"stdout":        true,
-			"format":        format,
-			"custom_format": customFormat,
+			"level": level,
 		},
 	}
 }
@@ -114,14 +103,6 @@ type TestFormatWriter struct {
 
 func logSomeStuff(level string) (string, error) {
 	buff := bytes.NewBuffer(make([]byte, 1024))
-	SetFormatterSelector(func(w io.Writer) string {
-		switch w.(type) {
-		case TestFormatWriter:
-			return "customFormatter %{message}"
-		default:
-			return DefaultPattern
-		}
-	})
 	logger, err := NewLogger(newExtraConfig(level, "default", ""), TestFormatWriter{buff})
 	if err != nil {
 		return "", err
