@@ -1,81 +1,82 @@
 package gologging
 
 import (
-	"fmt"
+	"bytes"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"io"
 	"io/ioutil"
+	"net/http"
+	"time"
 
+	"github.com/MagalixTechnologies/core/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/luraproject/lura/config"
 	"github.com/luraproject/lura/logging"
 )
 
-const (
-	RequestLogNamespace  = "github_com/magalixtechnologies/gin-logger"
-	RequestLogmoduleName = "gin-logger"
-)
-
-func NewRequestLogger(cfg config.ExtraConfig, logger logging.Logger, loggerConfig gin.LoggerConfig) gin.HandlerFunc {
-	v, ok := RequestLogConfigGetter(cfg).(RequestLogConfig)
-	if !ok {
-		return gin.LoggerWithConfig(loggerConfig)
+func getRequestId(r *http.Request) interface{} {
+	reqID := r.Header.Get("X-Request-Id")
+	if reqID == "" {
+		reqID = shortID()
 	}
 
-	loggerConfig.SkipPaths = v.SkipPaths
-	logger.Info(fmt.Sprintf("%s: total skip paths set: %d", RequestLogmoduleName, len(v.SkipPaths)))
-
-	loggerConfig.Output = ioutil.Discard
-	loggerConfig.Formatter = Formatter{logger.(Logger), v}.DefaultFormatter
-	return gin.LoggerWithConfig(loggerConfig)
+	return reqID
 }
 
-type Formatter struct {
-	logger Logger
-	config RequestLogConfig
+func shortID() string {
+	b := make([]byte, 6)
+	io.ReadFull(rand.Reader, b)
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-func (f Formatter) DefaultFormatter(params gin.LogFormatterParams) string {
-	logData := []interface{}{
-		"method", params.Method,
-		"endpoint", params.Path,
-		"StatusCode", params.StatusCode,
-		"duration", params.Latency,
-	}
+func NewRequestLogger(log logging.Logger) gin.HandlerFunc {
+	lg := log.(Logger)
+	level := lg.GetLogLevel()
+	return func(c *gin.Context) {
+		request := c.Request
+		reqID := getRequestId(request)
+		sugar := logger.New(lg.GetLogLevel())
+		sugarLogger := sugar.With("requestId", reqID)
+		started := time.Now()
 
-	f.logger.InfoWithArgs("Default logging", logData...)
+		c.Next()
 
-	return ""
-}
+		if level == logger.DebugLevel {
+			// copy request payload in case we will show it
+			buf, _ := ioutil.ReadAll(request.Body)
+			rdr1 := ioutil.NopCloser(bytes.NewBuffer(buf))
+			rdr2 := ioutil.NopCloser(bytes.NewBuffer(buf))
+			request.Body = rdr2 // OK since rdr2 implements the io.ReadCloser interface
 
-func RequestLogConfigGetter(e config.ExtraConfig) interface{} {
-	v, ok := e[RequestLogNamespace]
-	if !ok {
-		return nil
-	}
-	tmp, ok := v.(map[string]interface{})
-	if !ok {
-		return nil
-	}
+			var payload map[string]interface{}
+			json.NewDecoder(rdr1).Decode(&payload)
 
-	cfg := defaultConfigGetter()
-	if skipPaths, ok := tmp["skip_paths"].([]interface{}); ok {
-		var paths []string
-		for _, skipPath := range skipPaths {
-			if path, ok := skipPath.(string); ok {
-				paths = append(paths, path)
+			headers := make(map[string][]string)
+			for name, values := range request.Header {
+				switch name {
+				case "Accept", "X-Request-Id", "Content-Length", "Content-Type", "User-Agent", "X-B3-Parentspanid", "X-B3-Sampled", "X-B3-Spanid", "X-B3-Traceid", "X-Envoy-Attempt-Count", "X-Forwarded-Client-Cert", "X-Forwarded-Proto":
+					continue
+				default:
+					headers[name] = values
+				}
 			}
+
+			sugarLogger.Debugw("Default Log",
+				"method", request.Method,
+				"endpoint", request.URL.String(),
+				"payload", payload,
+				"headers", headers,
+			)
 		}
-		cfg.SkipPaths = paths
+
+		defer sugarLogger.Sync()
+		sugarLogger.Infow("Default Log",
+			"method", request.Method,
+			"endpoint", request.URL.String(),
+			"StatusCode", c.Writer.Status(),
+			"bytes", c.Writer.Size(),
+			"duration", time.Since(started).String(),
+		)
 	}
-
-	return cfg
-}
-
-func defaultConfigGetter() RequestLogConfig {
-	return RequestLogConfig{
-		SkipPaths: []string{},
-	}
-}
-
-type RequestLogConfig struct {
-	SkipPaths []string
 }

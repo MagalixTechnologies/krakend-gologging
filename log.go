@@ -27,19 +27,21 @@ func NewLogger(cfg config.ExtraConfig, ws ...io.Writer) (logging.Logger, error) 
 		return nil, ErrWrongConfig
 	}
 	logLevel := logConfig.Level
+	var mgxlogLevel logger.Level
 	switch logLevel {
 	case "INFO":
-		logger.Config(logger.InfoLevel)
+		mgxlogLevel = logger.InfoLevel
 	case "WARNING":
-		logger.Config(logger.WarnLevel)
+		mgxlogLevel = logger.WarnLevel
 	case "DEBUG":
-		logger.Config(logger.DebugLevel)
+		mgxlogLevel = logger.DebugLevel
 	case "ERROR":
-		logger.Config(logger.ErrorLevel)
+		mgxlogLevel = logger.ErrorLevel
 	default:
 		return nil, fmt.Errorf("Unsupported log level %s", logLevel)
 	}
-	return Logger{}, nil
+	logger.Config(mgxlogLevel)
+	return Logger{logLevel: mgxlogLevel}, nil
 }
 
 // ConfigGetter implements the config.ConfigGetter interface
@@ -65,7 +67,9 @@ type Config struct {
 }
 
 // Logger is a wrapper over a github.com/op/go-logging logger
-type Logger struct{}
+type Logger struct {
+	logLevel logger.Level
+}
 
 // Debug implements the logger interface
 func (l Logger) Debug(v ...interface{}) {
@@ -97,6 +101,6 @@ func (l Logger) Fatal(v ...interface{}) {
 	logger.Fatal(v...)
 }
 
-func (l Logger) InfoWithArgs(msg string, v ...interface{}) {
-	logger.Infow(msg, v...)
+func (l Logger) GetLogLevel() logger.Level {
+	return l.logLevel
 }
