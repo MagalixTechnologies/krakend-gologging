@@ -15,6 +15,8 @@ import (
 	"github.com/luraproject/lura/logging"
 )
 
+const healthEndPoint = "/__health"
+
 func getRequestId(r *http.Request) interface{} {
 	reqID := r.Header.Get("X-Request-Id")
 	if reqID == "" {
@@ -35,6 +37,10 @@ func NewRequestLogger(log logging.Logger) gin.HandlerFunc {
 	level := lg.GetLogLevel()
 	return func(c *gin.Context) {
 		request := c.Request
+		endpoint := request.URL.String()
+		if endpoint == healthEndPoint {
+			return
+		}
 		reqID := getRequestId(request)
 		sugar := logger.New(lg.GetLogLevel())
 		sugarLogger := sugar.With("requestId", reqID)
@@ -73,7 +79,7 @@ func NewRequestLogger(log logging.Logger) gin.HandlerFunc {
 		defer sugarLogger.Sync()
 		sugarLogger.Infow("Default Log",
 			"method", request.Method,
-			"endpoint", request.URL.String(),
+			"endpoint", endpoint,
 			"StatusCode", c.Writer.Status(),
 			"bytes", c.Writer.Size(),
 			"duration", time.Since(started).String(),
